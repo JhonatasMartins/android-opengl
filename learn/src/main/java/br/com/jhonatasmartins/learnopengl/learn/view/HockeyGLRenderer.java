@@ -8,6 +8,7 @@ import br.com.jhonatasmartins.learnopengl.learn.helper.ShaderHelper;
 import br.com.jhonatasmartins.learnopengl.learn.helper.TextReader;
 
 import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL;
 import javax.microedition.khronos.opengles.GL10;
 
 import java.nio.ByteBuffer;
@@ -22,10 +23,12 @@ import static android.opengl.GLES20.*;
 public class HockeyGLRenderer implements GLSurfaceView.Renderer{
 
     final String LOG_TAG = "HockeyGLRenderer";
-    final String COLOR = "u_Color";
+    final String COLOR = "a_Color";
     final String POSITION = "a_Position";
     final int POSITION_COMPONENT_COUNT = 2; //just x and y
+    final int COLOR_COMPONENT_COUNT = 3;  // r g b
     final int BYTES_PER_FLOAT = 4;
+    final int STRIDE = (POSITION_COMPONENT_COUNT + COLOR_COMPONENT_COUNT) * BYTES_PER_FLOAT;
     final FloatBuffer vertexData;
 
     String vertexShader;
@@ -35,23 +38,33 @@ public class HockeyGLRenderer implements GLSurfaceView.Renderer{
     int positionLocation;
 
     float[] tableVertices = {
+            /*x, y, r, g, b*/
+
             // Triangle 1
-            -0.5f, -0.5f,
+           /* -0.5f, -0.5f,
             0.5f, 0.5f,
-            -0.5f, 0.5f,
+            -0.5f, 0.5f,/*
 
             // Triangle 2
-            -0.5f, -0.5f,
+           /* -0.5f, -0.5f,
             0.5f, -0.5f,
-            0.5f, 0.5f,
+            0.5f, 0.5f,*/
+
+            // Triangle Fan
+            0f, 0f, 1f, 1f, 1f,
+            -0.5f, -0.5f, 0.7f, 0.7f, 0.7f,
+            0.5f, -0.5f, 0.7f, 0.7f, 0.7f,
+            0.5f, 0.5f, 0.7f, 0.7f, 0.7f,
+            -0.5f, 0.5f, 0.7f, 0.7f, 0.7f,
+            -0.5f, -0.5f, 0.7f, 0.7f, 0.7f,
 
             // Line 1
-            -0.5f, 0f,
-            0.5f, 0f,
+            -0.5f, 0f, 1f, 0f, 0f,
+            0.5f, 0f, 1f, 0f, 0f,
 
             // Mallets
-            0f, -0.25f,
-            0f, 0.25f
+            0f, -0.25f, 0f, 0f, 1f,
+            0f, 0.25f, 1f, 0f, 0f
     };
 
     public HockeyGLRenderer(Context context){
@@ -75,22 +88,23 @@ public class HockeyGLRenderer implements GLSurfaceView.Renderer{
         int fragmentId = ShaderHelper.compileFragmentShader(fragmentShader);
         program = ShaderHelper.linkProgram(vertexId, fragmentId);
 
-        boolean validate = ShaderHelper.validateProgram(program);
-        if(!validate){
-            Log.e(LOG_TAG, "")
-        }
-
+        ShaderHelper.validateProgram(program);
 
         /* use this program for draw anything to the screen*/
         glUseProgram(program);
 
-        colorLocation = glGetUniformLocation(program, COLOR);
+        colorLocation = glGetAttribLocation(program, COLOR);
         positionLocation = glGetAttribLocation(program, POSITION);
 
         vertexData.position(0);
-        glVertexAttribPointer(positionLocation, POSITION_COMPONENT_COUNT, GL_FLOAT, false, 0, vertexData);
+        glVertexAttribPointer(positionLocation, POSITION_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, vertexData);
 
         glEnableVertexAttribArray(positionLocation);
+
+        vertexData.position(POSITION_COMPONENT_COUNT);
+        glVertexAttribPointer(colorLocation, COLOR_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, vertexData);
+
+        glEnableVertexAttribArray(colorLocation);
     }
 
     @Override
@@ -104,23 +118,17 @@ public class HockeyGLRenderer implements GLSurfaceView.Renderer{
         /* redraw background color */
         glClear(GL_COLOR_BUFFER_BIT);
 
-
         /* draw hockey table */
-        glUniform4f(colorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 6);
 
         /* draw hockey divider */
-        glUniform4f(colorLocation, 0.0f, 0.0f, 0.0f, 1.0f);
         glDrawArrays(GL_LINES, 6, 2);
 
         /* draw the first mallet blue */
-        glUniform4f(colorLocation, 0.0f, 0.0f, 1.0f, 1.0f);
         glDrawArrays(GL_POINTS, 8, 1);
 
         /* draw the second mallet red */
-        glUniform4f(colorLocation, 1.0f, 0.0f, 0.0f, 1.0f);
         glDrawArrays(GL_POINTS, 9, 1);
-
 
     }
 }
