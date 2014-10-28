@@ -2,6 +2,7 @@ package br.com.jhonatasmartins.learnopengl.learn.view;
 
 import android.content.Context;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.util.Log;
 import br.com.jhonatasmartins.learnopengl.learn.R;
 import br.com.jhonatasmartins.learnopengl.learn.helper.ShaderHelper;
@@ -25,10 +26,12 @@ public class HockeyGLRenderer implements GLSurfaceView.Renderer{
     final String LOG_TAG = "HockeyGLRenderer";
     final String COLOR = "a_Color";
     final String POSITION = "a_Position";
+    final String MATRIX = "u_Matrix";
     final int POSITION_COMPONENT_COUNT = 2; //just x and y
     final int COLOR_COMPONENT_COUNT = 3;  // r g b
     final int BYTES_PER_FLOAT = 4;
     final int STRIDE = (POSITION_COMPONENT_COUNT + COLOR_COMPONENT_COUNT) * BYTES_PER_FLOAT;
+    final float[] projectionMatrix = new float[16];
     final FloatBuffer vertexData;
 
     String vertexShader;
@@ -36,35 +39,27 @@ public class HockeyGLRenderer implements GLSurfaceView.Renderer{
     int program;
     int colorLocation;
     int positionLocation;
+    int matrixLocation;
+
 
     float[] tableVertices = {
             /*x, y, r, g, b*/
 
-            // Triangle 1
-           /* -0.5f, -0.5f,
-            0.5f, 0.5f,
-            -0.5f, 0.5f,/*
-
-            // Triangle 2
-           /* -0.5f, -0.5f,
-            0.5f, -0.5f,
-            0.5f, 0.5f,*/
-
             // Triangle Fan
             0f, 0f, 1f, 1f, 1f,
-            -0.5f, -0.5f, 0.7f, 0.7f, 0.7f,
-            0.5f, -0.5f, 0.7f, 0.7f, 0.7f,
-            0.5f, 0.5f, 0.7f, 0.7f, 0.7f,
-            -0.5f, 0.5f, 0.7f, 0.7f, 0.7f,
-            -0.5f, -0.5f, 0.7f, 0.7f, 0.7f,
+            -0.5f, -0.8f, 0.7f, 0.7f, 0.7f,
+            0.5f, -0.8f, 0.7f, 0.7f, 0.7f,
+            0.5f, 0.8f, 0.7f, 0.7f, 0.7f,
+            -0.5f, 0.8f, 0.7f, 0.7f, 0.7f,
+            -0.5f, -0.8f, 0.7f, 0.7f, 0.7f,
 
             // Line 1
             -0.5f, 0f, 1f, 0f, 0f,
             0.5f, 0f, 1f, 0f, 0f,
 
             // Mallets
-            0f, -0.25f, 0f, 0f, 1f,
-            0f, 0.25f, 1f, 0f, 0f
+            0f, -0.4f, 0f, 0f, 1f,
+            0f, 0.4f, 1f, 0f, 0f
     };
 
     public HockeyGLRenderer(Context context){
@@ -95,6 +90,7 @@ public class HockeyGLRenderer implements GLSurfaceView.Renderer{
 
         colorLocation = glGetAttribLocation(program, COLOR);
         positionLocation = glGetAttribLocation(program, POSITION);
+        matrixLocation = glGetUniformLocation(program, MATRIX);
 
         vertexData.position(0);
         glVertexAttribPointer(positionLocation, POSITION_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, vertexData);
@@ -111,12 +107,25 @@ public class HockeyGLRenderer implements GLSurfaceView.Renderer{
     public void onSurfaceChanged(GL10 unused, int width, int height) {
         /* set viewport size when surface changes */
        glViewport(0, 0, width, height);
+
+       float aspectRatio = (width > height) ? width / height : height / width;
+
+        if(width > height){
+            /* landscape */
+            Matrix.orthoM(projectionMatrix, 0, -aspectRatio, aspectRatio, -1f, 1f, -1f, 1f);
+        }else{
+            /* portrait */
+            Matrix.orthoM(projectionMatrix, 0, -1f, 1f, -aspectRatio, aspectRatio, -1f, 1f);
+        }
     }
 
     @Override
     public void onDrawFrame(GL10 unused) {
         /* redraw background color */
         glClear(GL_COLOR_BUFFER_BIT);
+
+        /* send orthographic projection to shader */
+        glUniformMatrix4fv(matrixLocation, 1, false, projectionMatrix, 0);
 
         /* draw hockey table */
         glDrawArrays(GL_TRIANGLE_FAN, 0, 6);
