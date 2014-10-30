@@ -7,6 +7,11 @@ import android.util.Log;
 import br.com.jhonatasmartins.learnopengl.learn.R;
 import br.com.jhonatasmartins.learnopengl.learn.helper.ShaderHelper;
 import br.com.jhonatasmartins.learnopengl.learn.helper.TextReader;
+import br.com.jhonatasmartins.learnopengl.learn.helper.TextureHelper;
+import br.com.jhonatasmartins.learnopengl.learn.objects.Mallet;
+import br.com.jhonatasmartins.learnopengl.learn.objects.Table;
+import br.com.jhonatasmartins.learnopengl.learn.program.ColorShaderProgram;
+import br.com.jhonatasmartins.learnopengl.learn.program.TextureShaderProgram;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL;
@@ -24,84 +29,35 @@ import static android.opengl.GLES20.*;
 public class HockeyGLRenderer implements GLSurfaceView.Renderer{
 
     final String LOG_TAG = "HockeyGLRenderer";
-    final String COLOR = "a_Color";
-    final String POSITION = "a_Position";
-    final String MATRIX = "u_Matrix";
-    final int POSITION_COMPONENT_COUNT = 4; // x,y,z,w
-    final int COLOR_COMPONENT_COUNT = 3;  // r g b
-    final int BYTES_PER_FLOAT = 4;
-    final int STRIDE = (POSITION_COMPONENT_COUNT + COLOR_COMPONENT_COUNT) * BYTES_PER_FLOAT;
+
     final float[] projectionMatrix = new float[16];
     final float[] modelMatrix = new float[16];
-    final FloatBuffer vertexData;
 
-    String vertexShader;
-    String fragmentShader;
-    int program;
-    int colorLocation;
-    int positionLocation;
-    int matrixLocation;
+    private Table table;
+    private Mallet mallet;
 
+    private TextureShaderProgram textureShaderProgram;
+    private ColorShaderProgram colorShaderProgram;
 
-    float[] tableVertices = {
-            /* X, Y, Z, W, R, G, B */
+    private int texture;
 
-            // Triangle Fan
-            0f, 0f, 0f, 1.5f, 1f, 1f, 1f,
-            -0.5f, -0.8f, 0f, 1f, 0.7f, 0.7f, 0.7f,
-            0.5f, -0.8f, 0f, 1f, 0.7f, 0.7f, 0.7f,
-            0.5f, 0.8f, 0f, 2f, 0.7f, 0.7f, 0.7f,
-            -0.5f, 0.8f, 0f, 2f, 0.7f, 0.7f, 0.7f,
-            -0.5f, -0.8f, 0f, 1f, 0.7f, 0.7f, 0.7f,
-
-            // Line 1
-            -0.5f, 0f, 0f, 1.5f, 1f, 0f, 0f,
-            0.5f, 0f, 0f, 1.5f, 1f, 0f, 0f,
-
-            // Mallets
-            0f, -0.4f, 0f, 1.25f, 0f, 0f, 1f,
-            0f, 0.4f, 0f, 1.75f, 1f, 0f, 0f
-    };
+    private Context context;
 
     public HockeyGLRenderer(Context context){
-        /* allocate memory to object to jni knows how much memory opengl will use*/
-        vertexData = ByteBuffer.allocateDirect(tableVertices.length * BYTES_PER_FLOAT)
-                               .order(ByteOrder.nativeOrder())
-                               .asFloatBuffer();
-        vertexData.put(tableVertices);
-
-        /* load shaders vertex and fragment from resouces */
-        vertexShader = TextReader.loadFromResource(context, R.raw.simple_vertex_shader);
-        fragmentShader = TextReader.loadFromResource(context, R.raw.simple_fragment_shader);
+        this.context = context;
     }
 
     @Override
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
-        /* set background frame color */
-        glClearColor(0, 0, 0, 0);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-        int vertexId = ShaderHelper.compileVertexShader(vertexShader);
-        int fragmentId = ShaderHelper.compileFragmentShader(fragmentShader);
-        program = ShaderHelper.linkProgram(vertexId, fragmentId);
+        table = new Table();
+        mallet = new Mallet();
 
-        ShaderHelper.validateProgram(program);
+        textureShaderProgram = new TextureShaderProgram(context);
+        colorShaderProgram = new ColorShaderProgram(context);
 
-        /* use this program for draw anything to the screen*/
-        glUseProgram(program);
-
-        colorLocation = glGetAttribLocation(program, COLOR);
-        positionLocation = glGetAttribLocation(program, POSITION);
-        matrixLocation = glGetUniformLocation(program, MATRIX);
-
-        vertexData.position(0);
-        glVertexAttribPointer(positionLocation, POSITION_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, vertexData);
-
-        glEnableVertexAttribArray(positionLocation);
-
-        vertexData.position(POSITION_COMPONENT_COUNT);
-        glVertexAttribPointer(colorLocation, COLOR_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, vertexData);
-
-        glEnableVertexAttribArray(colorLocation);
+        texture = TextureHelper.loadTexture(context, R.drawable.air_hockey);
     }
 
     @Override
@@ -123,23 +79,19 @@ public class HockeyGLRenderer implements GLSurfaceView.Renderer{
 
     @Override
     public void onDrawFrame(GL10 unused) {
-        /* redraw background color */
+        // Clear the rendering surface.
         glClear(GL_COLOR_BUFFER_BIT);
 
-        /* send orthographic projection to shader */
-        glUniformMatrix4fv(matrixLocation, 1, false, projectionMatrix, 0);
+        // Draw the table.
+        textureShaderProgram.useProgram();
+        textureShaderProgram.setUniforms(projectionMatrix, texture);
+        table.bindData(textureShaderProgram);
+        table.onDraw();
 
-        /* draw hockey table */
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 6);
-
-        /* draw hockey divider */
-        glDrawArrays(GL_LINES, 6, 2);
-
-        /* draw the first mallet blue */
-        glDrawArrays(GL_POINTS, 8, 1);
-
-        /* draw the second mallet red */
-        glDrawArrays(GL_POINTS, 9, 1);
-
+        // Draw the mallets.
+        colorShaderProgram.useProgram();
+        colorShaderProgram.setUniforms(projectionMatrix);
+        mallet.bindData(colorShaderProgram);
+        mallet.onDraw();
     }
 }
